@@ -15,11 +15,10 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { RequireRoles } from '../auth/decorators/roles.decorator';
-import { UserRole } from '../auth/entities/user.entity';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@RequireRoles(UserRole.ADMIN)
+@RequireRoles('admin')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
@@ -59,7 +58,7 @@ export class AdminController {
   }
 
   @Post('users')
-  async createUser(@Body() body: { email: string; password: string; role?: UserRole }) {
+  async createUser(@Body() body: { email: string; password: string; role?: 'admin' | 'user' }) {
     return this.adminService.createUser(body.email, body.password, body.role);
   }
 }

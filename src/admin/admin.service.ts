@@ -91,7 +91,7 @@ export class AdminService {
     await this.userRepository.delete(id);
   }
 
-  async createUser(email: string, password: string, role: UserRole = UserRole.USER): Promise<User> {
+  async createUser(email: string, password: string, role: 'admin' | 'user' = 'user'): Promise<User> {
     const existingUser = await this.userRepository.findOne({
       where: { email },
     });
@@ -105,7 +105,7 @@ export class AdminService {
     const user = this.userRepository.create({
       email,
       password: hashedPassword,
-      role,
+      role: role as UserRole,
       status: UserStatus.ACTIVE,
       confirmedAt: new Date(),
     });

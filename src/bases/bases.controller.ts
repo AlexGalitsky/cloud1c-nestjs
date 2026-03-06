@@ -19,7 +19,12 @@ import { CreateBaseDto, UpdateBaseDto } from './dto/base.dto';
 import { Request } from 'express';
 
 interface RequestWithUser extends Request {
-  user: { userId: number };
+  user: { 
+    userId: number;
+    email: string;
+    role: string;
+    status: string;
+  };
 }
 
 @UseGuards(JwtAuthGuard)

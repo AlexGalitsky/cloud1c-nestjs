@@ -17,8 +17,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { 
-    sub: number; 
+  async validate(payload: {
+    sub: number;
     email: string;
     role: string;
     status: string;
@@ -27,11 +27,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user) {
       throw new UnauthorizedException();
     }
-    return { 
-      userId: payload.sub, 
-      email: payload.email,
-      role: payload.role,
-      status: payload.status,
+    // Возвращаем актуальные данные из БД, а не из токена
+    return {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      status: user.status,
     };
   }
 }

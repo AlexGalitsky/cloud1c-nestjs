@@ -1,6 +1,5 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException, SetMetadata } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { UserStatus } from '../entities/user.entity';
 
 export const SkipStatusCheck = () => SetMetadata('skipStatusCheck', true);
 
@@ -21,15 +20,18 @@ export class UserStatusGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
+    // Если user еще не установлен (JwtAuthGuard еще не выполнился), пропускаем
+    // Статус будет проверен в следующем запросе после установки токена
     if (!user) {
-      throw new ForbiddenException('User not authenticated');
+      return true;
     }
 
-    if (user.status === UserStatus.PENDING) {
+    // Проверяем статус как строку (из JWT payload)
+    if (user.status === 'pending') {
       throw new ForbiddenException('Account pending confirmation by administrator');
     }
 
-    if (user.status === UserStatus.BLOCKED) {
+    if (user.status === 'blocked') {
       throw new ForbiddenException('Account is blocked');
     }
 
