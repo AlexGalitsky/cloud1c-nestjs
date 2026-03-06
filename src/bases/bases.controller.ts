@@ -15,11 +15,11 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { BasesService } from './bases.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CreateBaseDto, UpdateBaseDto } from './dto/base.dto';
+import { CreateBaseDto, UpdateBaseDto, UploadDtDto } from './dto/base.dto';
 import { Request } from 'express';
 
 interface RequestWithUser extends Request {
-  user: { 
+  user: {
     userId: number;
     email: string;
     role: string;
@@ -33,13 +33,19 @@ export class BasesController {
   constructor(private readonly basesService: BasesService) {}
 
   @Post()
+  async create(@Body() createBaseDto: CreateBaseDto, @Req() req: RequestWithUser) {
+    return this.basesService.create(createBaseDto, req.user.userId);
+  }
+
+  @Post(':id/dt-files')
   @UseInterceptors(FileInterceptor('dtFile'))
-  async create(
-    @Body() createBaseDto: CreateBaseDto,
+  async uploadDt(
+    @Param('id', ParseIntPipe) id: number,
     @UploadedFile() dtFile: Express.Multer.File,
+    @Body() uploadDto: UploadDtDto,
     @Req() req: RequestWithUser,
   ) {
-    return this.basesService.create(createBaseDto, req.user.userId, dtFile);
+    return this.basesService.uploadDt(id, req.user.userId, dtFile, uploadDto);
   }
 
   @Get()
@@ -58,14 +64,12 @@ export class BasesController {
   }
 
   @Patch(':id')
-  @UseInterceptors(FileInterceptor('dtFile'))
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateBaseDto: UpdateBaseDto,
-    @UploadedFile() dtFile: Express.Multer.File,
     @Req() req: RequestWithUser,
   ) {
-    return this.basesService.update(id, updateBaseDto, req.user.userId, dtFile);
+    return this.basesService.update(id, updateBaseDto, req.user.userId);
   }
 
   @Delete(':id')

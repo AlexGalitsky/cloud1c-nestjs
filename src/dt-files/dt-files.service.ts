@@ -72,7 +72,7 @@ export class DtFilesService {
     await this.dtFileRepository.remove(dtFile);
   }
 
-  async apply(id: number, baseId: number): Promise<void> {
+  async apply(id: number, baseId: number, adminUser?: string, adminPass?: string): Promise<void> {
     const dtFile = await this.findOne(id, baseId);
     const base = await this.baseRepository.findOne({ where: { id: baseId } });
 
@@ -85,6 +85,13 @@ export class DtFilesService {
       status: BaseStatus.PROCESSING,
       lastLog: 'Применение файла .dt...',
     });
+
+    // Сохраняем adminUser/adminPass если предоставлены
+    if (adminUser && adminPass) {
+      base.adminUser = adminUser;
+      base.adminPass = adminPass;
+      await this.baseRepository.save(base);
+    }
 
     // Выполняем команду 1С через ibcmd.exe
     this.commandExecutor.executeRestoreCommand(
@@ -108,6 +115,9 @@ export class DtFilesService {
             .where('baseId = :baseId', { baseId })
             .andWhere('id != :id', { id })
             .execute();
+
+          // Помечаем базу как не пустую
+          await this.baseRepository.update(baseId, { isEmpty: false });
         }
       },
     );

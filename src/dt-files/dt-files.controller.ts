@@ -20,6 +20,11 @@ interface RequestWithUser extends Request {
   user: { userId: number };
 }
 
+export class ApplyDtDto {
+  adminUser?: string;
+  adminPass?: string;
+}
+
 @UseGuards(JwtAuthGuard)
 @Controller('bases/:baseId/dt-files')
 export class DtFilesController {
@@ -61,9 +66,10 @@ export class DtFilesController {
     @Param('baseId', ParseIntPipe) baseId: number,
     @Param('id', ParseIntPipe) id: number,
     @Req() req: RequestWithUser,
+    @Body() applyDto: ApplyDtDto,
   ) {
     await this.basesService.findOne(baseId, req.user.userId);
-    await this.dtFilesService.apply(id, baseId);
+    await this.dtFilesService.apply(id, baseId, applyDto.adminUser, applyDto.adminPass);
     return { message: 'Apply started' };
   }
 }

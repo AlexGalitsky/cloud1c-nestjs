@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsOptional, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, Matches, MaxLength } from 'class-validator';
 
 export class CreateBaseDto {
   @IsString()
@@ -13,17 +13,6 @@ export class CreateBaseDto {
   @IsOptional()
   @MaxLength(100)
   description?: string;
-
-  @IsString()
-  @IsOptional()
-  @MaxLength(50)
-  adminUser?: string;
-
-  @IsString()
-  @IsOptional()
-  @MinLength(1)
-  @MaxLength(50)
-  adminPass?: string;
 }
 
 export class UpdateBaseDto {
@@ -31,7 +20,9 @@ export class UpdateBaseDto {
   @IsOptional()
   @MaxLength(100)
   description?: string;
+}
 
+export class UploadDtDto {
   @IsString()
   @IsOptional()
   @MaxLength(50)
@@ -39,7 +30,6 @@ export class UpdateBaseDto {
 
   @IsString()
   @IsOptional()
-  @MinLength(1)
   @MaxLength(50)
   adminPass?: string;
 }

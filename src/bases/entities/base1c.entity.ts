@@ -37,6 +37,9 @@ export class Base1C {
   @Column({ nullable: true })
   description?: string;
 
+  @Column({ name: 'is_empty', default: true })
+  isEmpty: boolean;
+
   @ManyToOne(() => User, (user) => user.bases, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'owner_id' })
   owner: User;

@@ -9,7 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Base1C, BaseStatus } from './entities/base1c.entity';
-import { CreateBaseDto, UpdateBaseDto } from './dto/base.dto';
+import { CreateBaseDto, UpdateBaseDto, UploadDtDto } from './dto/base.dto';
 import { CommandExecutorService } from '../command-executor/command-executor.service';
 import { DtFilesService } from '../dt-files/dt-files.service';
 import { DtFile } from '../dt-files/entities/dt-file.entity';
@@ -33,7 +33,7 @@ export class BasesService {
     }
   }
 
-  async create(createBaseDto: CreateBaseDto, ownerId: number, dtFile?: Express.Multer.File): Promise<Base1C> {
+  async create(createBaseDto: CreateBaseDto, ownerId: number): Promise<Base1C> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -52,79 +52,35 @@ export class BasesService {
         name: createBaseDto.name,
         serverPath,
         ownerId,
-        adminUser: createBaseDto.adminUser || undefined,
-        adminPass: createBaseDto.adminPass || undefined,
         status: BaseStatus.PROCESSING,
-        lastLog: 'Инициализация...',
+        lastLog: 'Создание базы в кластере...',
         description: createBaseDto.description || undefined,
+        isEmpty: true,
       });
 
       await queryRunner.manager.save(base);
 
-      if (dtFile) {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const filename = `base_${base.id}_${timestamp}_${dtFile.originalname}`;
-        const dtPath = path.join(this.uploadDir, filename);
-        fs.writeFileSync(dtPath, dtFile.buffer);
+      // Создаем базу в кластере 1С
+      const createResult = await this.commandExecutor.executeCreateBaseCommand(base);
 
-        // Сохраняем информацию о файле в рамках транзакции
-        const dtFileRecord = new DtFile();
-        dtFileRecord.baseId = base.id;
-        dtFileRecord.filename = filename;
-        dtFileRecord.originalName = dtFile.originalname;
-        dtFileRecord.filePath = dtPath;
-        dtFileRecord.fileSize = dtFile.size;
-        dtFileRecord.applied = false;
-        await queryRunner.manager.save(dtFileRecord);
-
-        // Сначала создаем базу в кластере 1С
-        const createResult = await this.commandExecutor.executeCreateBaseCommand(base);
-
-        if (!createResult.success) {
-          await queryRunner.manager.update(Base1C, base.id, {
-            status: BaseStatus.ERROR,
-            lastLog: `Ошибка создания базы в кластере: ${createResult.error}`
-          });
-          await queryRunner.commitTransaction();
-          const savedBase = await this.baseRepository.findOne({ where: { id: base.id } });
-          if (!savedBase) {
-            throw new NotFoundException('Base not found after creation');
-          }
-          return savedBase;
+      if (!createResult.success) {
+        await queryRunner.manager.update(Base1C, base.id, {
+          status: BaseStatus.ERROR,
+          lastLog: `Ошибка создания базы в кластере: ${createResult.error}`,
+        });
+        await queryRunner.commitTransaction();
+        const savedBase = await this.baseRepository.findOne({ where: { id: base.id } });
+        if (!savedBase) {
+          throw new NotFoundException('Base not found after creation');
         }
-
-        // После успешного создания в кластере - восстанавливаем из .dt
-        this.commandExecutor.executeRestoreCommand(
-          base,
-          dtPath,
-          async (log: string, status: BaseStatus) => {
-            await this.dataSource.manager.update(Base1C, base.id, { lastLog: log, status });
-
-            // Помечаем файл как применённый
-            if (status === BaseStatus.READY) {
-              await this.dataSource.manager.update(DtFile, dtFileRecord.id, {
-                applied: true,
-                lastAppliedAt: new Date(),
-              });
-            }
-          },
-        );
-      } else {
-        // Если файл не загружен, просто создаем базу в кластере
-        const createResult = await this.commandExecutor.executeCreateBaseCommand(base);
-
-        if (!createResult.success) {
-          await queryRunner.manager.update(Base1C, base.id, {
-            status: BaseStatus.ERROR,
-            lastLog: `Ошибка создания базы в кластере: ${createResult.error}`
-          });
-        } else {
-          await queryRunner.manager.update(Base1C, base.id, {
-            status: BaseStatus.READY,
-            lastLog: `База создана в кластере (ID: ${createResult.infobaseId})`
-          });
-        }
+        return savedBase;
       }
+
+      // База успешно создана в кластере
+      await queryRunner.manager.update(Base1C, base.id, {
+        status: BaseStatus.READY,
+        lastLog: `База создана в кластере (ID: ${createResult.infobaseId}). Загрузите файл .dt для восстановления.`,
+      });
 
       await queryRunner.commitTransaction();
       const savedBase = await this.baseRepository.findOne({ where: { id: base.id } });
@@ -140,7 +96,12 @@ export class BasesService {
     }
   }
 
-  async update(id: number, updateBaseDto: UpdateBaseDto, ownerId: number, dtFile?: Express.Multer.File): Promise<Base1C> {
+  async uploadDt(
+    id: number,
+    ownerId: number,
+    dtFile: Express.Multer.File,
+    uploadDto: UploadDtDto,
+  ): Promise<DtFile> {
     const base = await this.baseRepository.findOne({ where: { id } });
 
     if (!base) {
@@ -151,57 +112,47 @@ export class BasesService {
       throw new ForbiddenException('You do not own this base');
     }
 
-    // Обновляем только description, adminUser и adminPass (если предоставлены)
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `base_${base.id}_${timestamp}_${dtFile.originalname}`;
+    const dtPath = path.join(this.uploadDir, filename);
+    fs.writeFileSync(dtPath, dtFile.buffer);
+
+    // Сохраняем информацию о файле
+    const dtFileRecord = await this.dtFilesService.create(
+      base.id,
+      filename,
+      dtFile.originalname,
+      dtPath,
+      dtFile.size,
+    );
+
+    // Сохраняем adminUser/adminPass если предоставлены
+    if (uploadDto.adminUser) {
+      base.adminUser = uploadDto.adminUser;
+      base.adminPass = uploadDto.adminPass;
+      await this.baseRepository.save(base);
+    }
+
+    return dtFileRecord;
+  }
+
+  async update(id: number, updateBaseDto: UpdateBaseDto, ownerId: number): Promise<Base1C> {
+    const base = await this.baseRepository.findOne({ where: { id } });
+
+    if (!base) {
+      throw new NotFoundException('Base not found');
+    }
+
+    if (base.ownerId !== ownerId) {
+      throw new ForbiddenException('You do not own this base');
+    }
+
+    // Обновляем только description
     if (updateBaseDto.description !== undefined) {
       base.description = updateBaseDto.description;
     }
-    if (updateBaseDto.adminUser !== undefined) {
-      base.adminUser = updateBaseDto.adminUser;
-    }
-    if (updateBaseDto.adminPass !== undefined) {
-      base.adminPass = updateBaseDto.adminPass;
-    }
-
-    if (dtFile) {
-      base.status = BaseStatus.PROCESSING;
-      base.lastLog = 'Обновление базы...';
-    }
 
     await this.baseRepository.save(base);
-
-    if (dtFile) {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `base_${base.id}_${timestamp}_${dtFile.originalname}`;
-      const dtPath = path.join(this.uploadDir, filename);
-      fs.writeFileSync(dtPath, dtFile.buffer);
-
-      // Сохраняем информацию о файле
-      await this.dtFilesService.create(
-        base.id,
-        filename,
-        dtFile.originalname,
-        dtPath,
-        dtFile.size,
-      );
-
-      this.commandExecutor.executeRestoreCommand(
-        base,
-        dtPath,
-        async (log: string, status: BaseStatus) => {
-          await this.dataSource.manager.update(Base1C, base.id, { lastLog: log, status });
-
-          // Помечаем файл как применённый
-          if (status === BaseStatus.READY) {
-            const dtFileRecord = await this.dataSource.manager.findOne(DtFile, {
-              where: { filePath: dtPath },
-            });
-            if (dtFileRecord) {
-              await this.dtFilesService.markAsApplied(dtFileRecord.id);
-            }
-          }
-        },
-      );
-    }
 
     const updatedBase = await this.baseRepository.findOne({ where: { id } });
     if (!updatedBase) {
