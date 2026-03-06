@@ -66,7 +66,7 @@ export class CommandExecutorService {
       const escapedLocale = this.clusterLocale;
 
       // Формируем команду rac для создания базы в кластере
-      const command = `"${escapedRacPath}" infobase --cluster=${escapedClusterId} create --name=${escapedBaseName} --dbms=${this.clusterDbms} --db-server=${escapedDbServer} --db-name=${escapedBaseName} --db-user=${escapedDbUser} --db-pwd=${escapedDbPassword} --locale=${escapedLocale} --create-database`;
+      const command = `"${escapedRacPath}" infobase --cluster=${escapedClusterId} create --name=${escapedBaseName} --dbms=${this.clusterDbms} --db-server=${escapedDbServer} --db-name=${escapedBaseName} --db-user=${escapedDbUser} --db-pwd=${escapedDbPassword} --locale=${escapedLocale} --create-database --license-distribution=allow`;
 
       this.logger.log(`Выполнение команды создания базы: ${command}`);
 
