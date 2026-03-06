@@ -128,13 +128,14 @@ export class CommandExecutorService {
 
     // Формируем команду ibcmd для восстановления
     // Базовая команда: ibcmd.exe infobase restore --dbms=PostgreSQL --db-server=... --db-name=... --db-user=... --db-pwd=... "file.dt"
-    let command = `"${escapedIbCmdPath}" infobase restore --dbms=${this.clusterDbms} --db-server=${escapedDbServer} --db-name=${base.name} --db-user=${escapedDbUser} --db-pwd=${escapedDbPassword} "${escapedDtPath}" > "${escapedLogPath}" 2>&1`;
+    // Добавляем chcp 65001 для корректной кодировки UTF-8
+    let command = `chcp 65001 >nul && "${escapedIbCmdPath}" infobase restore --dbms=${this.clusterDbms} --db-server=${escapedDbServer} --db-name=${base.name} --db-user=${escapedDbUser} --db-pwd=${escapedDbPassword} "${escapedDtPath}" > "${escapedLogPath}" 2>&1`;
     
     // Для версий 1С >= 8.3.1741 требуется указывать логин/пароль от ИБ
     if (this.isUserPassRequired) {
       const escapedIbUser = this.ibUser.replace(/"/g, '\\"');
       const escapedIbPassword = this.ibPassword.replace(/"/g, '\\"');
-      command = `"${escapedIbCmdPath}" infobase restore --dbms=${this.clusterDbms} --db-server=${escapedDbServer} --db-name=${base.name} --db-user=${escapedDbUser} --db-pwd=${escapedDbPassword} --user=${escapedIbUser} --password=${escapedIbPassword} "${escapedDtPath}" > "${escapedLogPath}" 2>&1`;
+      command = `chcp 65001 >nul && "${escapedIbCmdPath}" infobase restore --dbms=${this.clusterDbms} --db-server=${escapedDbServer} --db-name=${base.name} --db-user=${escapedDbUser} --db-pwd=${escapedDbPassword} --user=${escapedIbUser} --password=${escapedIbPassword} "${escapedDtPath}" > "${escapedLogPath}" 2>&1`;
     }
 
     this.logger.log(`Выполнение команды: ${command}`);
