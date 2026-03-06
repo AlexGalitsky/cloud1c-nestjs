@@ -13,7 +13,6 @@ import { User } from './auth/entities/user.entity';
 import { Base1C } from './bases/entities/base1c.entity';
 import { DtFile } from './dt-files/entities/dt-file.entity';
 import { SeedsModule } from './seeds/seeds.module';
-import { BaseCleanupService } from './bases/base-cleanup.service';
 
 @Module({
   imports: [
@@ -44,6 +43,6 @@ import { BaseCleanupService } from './bases/base-cleanup.service';
     SeedsModule,
   ],
   controllers: [AppController],
-  providers: [AppService, BaseCleanupService],
+  providers: [AppService],
 })
 export class AppModule {}

@@ -9,12 +9,12 @@ import { BaseCleanupService } from './base-cleanup.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Base1C]), 
-    CommandExecutorModule, 
+    TypeOrmModule.forFeature([Base1C]),
+    CommandExecutorModule,
     forwardRef(() => DtFilesModule),
   ],
   controllers: [BasesController],
-  providers: [BasesService],
+  providers: [BasesService, BaseCleanupService],
   exports: [BasesService],
 })
 export class BasesModule {}
