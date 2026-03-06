@@ -40,6 +40,9 @@ export class Base1C {
   @Column({ name: 'is_empty', default: true })
   isEmpty: boolean;
 
+  @Column({ name: 'cluster_guid', nullable: true })
+  clusterGuid?: string;
+
   @ManyToOne(() => User, (user) => user.bases, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'owner_id' })
   owner: User;

@@ -74,8 +74,8 @@ export class BasesController {
 
   @Delete(':id')
   async remove(@Param('id', ParseIntPipe) id: number, @Req() req: RequestWithUser) {
-    await this.basesService.remove(id, req.user.userId);
-    return { message: 'Base deleted successfully' };
+    const result = await this.basesService.remove(id, req.user.userId);
+    return result;
   }
 
   @Post(':id/publish')

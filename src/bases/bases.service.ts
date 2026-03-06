@@ -19,6 +19,7 @@ import * as path from 'path';
 @Injectable()
 export class BasesService {
   private readonly uploadDir = path.join(process.cwd(), 'dt-files');
+  private readonly wwwRoot = process.env.WWW_ROOT || 'C:\\inetpub\\wwwroot';
 
   constructor(
     @InjectRepository(Base1C)
@@ -76,10 +77,11 @@ export class BasesService {
         return savedBase;
       }
 
-      // База успешно создана в кластере
+      // База успешно создана в кластере - сохраняем GUID
       await queryRunner.manager.update(Base1C, base.id, {
         status: BaseStatus.READY,
         lastLog: `База создана в кластере (ID: ${createResult.infobaseId}). Загрузите файл .dt для восстановления.`,
+        clusterGuid: createResult.infobaseId,
       });
 
       await queryRunner.commitTransaction();
@@ -187,9 +189,72 @@ export class BasesService {
     };
   }
 
-  async remove(id: number, ownerId: number): Promise<void> {
+  async remove(id: number, ownerId: number): Promise<{ message: string; log: string }> {
     const base = await this.findOne(id, ownerId);
+
+    if (!base) {
+      throw new NotFoundException('Base not found');
+    }
+
+    const logs: string[] = [];
+
+    // Если база не пустая (is_empty=false), предупреждаем что она активна
+    if (!base.isEmpty) {
+      logs.push('ВНИМАНИЕ: База активна (содержит данные). Будет выполнена полная очистка.');
+    }
+
+    // 1. Снимаем с публикации если была опубликована
+    logs.push('Снятие с публикации...');
+    await new Promise<void>((resolve) => {
+      this.commandExecutor.unpublishBase(base, async (log, success) => {
+        logs.push(`Публикация: ${log}`);
+        resolve();
+      });
+    });
+
+    // 2. Удаляем базу из кластера 1С
+    logs.push('Удаление из кластера 1С...');
+    await new Promise<void>((resolve) => {
+      this.commandExecutor.deleteBaseFromCluster(base, async (log, success) => {
+        logs.push(`Кластер: ${log}`);
+        resolve();
+      });
+    });
+
+    // 3. Удаляем базу данных PostgreSQL
+    logs.push('Удаление базы данных PostgreSQL...');
+    await new Promise<void>((resolve) => {
+      this.commandExecutor.dropDatabase(base, async (log, success) => {
+        logs.push(`PostgreSQL: ${log}`);
+        resolve();
+      });
+    });
+
+    // 4. Удаляем .dt файлы с диска
+    logs.push('Удаление файлов .dt...');
+    const dtFiles = await this.dtFilesService.findAll(id);
+    for (const dtFile of dtFiles) {
+      if (fs.existsSync(dtFile.filePath)) {
+        fs.unlinkSync(dtFile.filePath);
+        logs.push(`Удален файл: ${dtFile.filename}`);
+      }
+    }
+
+    // 5. Удаляем папку публикации
+    const wwwDir = path.join(this.wwwRoot, base.name);
+    if (fs.existsSync(wwwDir)) {
+      fs.rmSync(wwwDir, { recursive: true, force: true });
+      logs.push(`Удалена папка публикации: ${wwwDir}`);
+    }
+
+    // 6. Удаляем запись из БД (каскадно удалит dt_files)
     await this.baseRepository.remove(base);
+    logs.push('Запись о базе удалена из БД');
+
+    return { 
+      message: 'Base deleted successfully',
+      log: logs.join('\n'),
+    };
   }
 
   async publish(id: number, ownerId: number): Promise<{ message: string }> {

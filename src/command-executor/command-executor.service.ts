@@ -241,4 +241,160 @@ export class CommandExecutorService {
       await callback(`Ошибка процесса: ${error.message}`, false);
     });
   }
+
+  /**
+   * Снимает базу с публикации на веб-сервере IIS
+   */
+  async unpublishBase(
+    base: Base1C,
+    callback: (log: string, success: boolean) => Promise<void>,
+  ): Promise<void> {
+    const logPath = path.join(this.logsDir, `unpublish_base_${base.id}.log`);
+
+    // Экранирование путей
+    const escapedWebinstPath = this.webinstPath;
+    const escapedWsDir = base.name.replace(/"/g, '\\"');
+    const escapedLogPath = logPath.replace(/"/g, '\\"');
+
+    // Формируем команду webinst для снятия с публикации
+    // webinst.exe -publish -iis -wsdir <alias> -delete
+    // Добавляем chcp 65001 для корректной кодировки UTF-8
+    const command = `chcp 65001 >nul && "${escapedWebinstPath}" -iis -wsdir "${escapedWsDir}" -delete > "${escapedLogPath}" 2>&1`;
+
+    this.logger.log(`Выполнение команды снятия с публикации: ${command}`);
+
+    const process = exec(command);
+
+    process.stdout?.on('data', (data) => {
+      this.logger.log(`stdout: ${data}`);
+    });
+
+    process.stderr?.on('data', (data) => {
+      this.logger.error(`stderr: ${data}`);
+    });
+
+    process.on('close', async (code) => {
+      this.logger.log(`Процесс снятия с публикации завершен с кодом: ${code}`);
+
+      let logContent = '';
+      if (fs.existsSync(logPath)) {
+        logContent = fs.readFileSync(logPath, 'utf-8');
+      }
+
+      if (code === 0) {
+        this.logger.log(`Публикация базы ${base.id} успешно снята`);
+        await callback(logContent || 'Публикация успешно снята', true);
+      } else {
+        this.logger.error(`Ошибка при снятии публикации базы ${base.id}, код: ${code}`);
+        await callback(logContent || `Ошибка выполнения команды (код: ${code})`, false);
+      }
+    });
+
+    process.on('error', async (error) => {
+      this.logger.error(`Ошибка процесса снятия с публикации: ${error.message}`);
+      await callback(`Ошибка процесса: ${error.message}`, false);
+    });
+  }
+
+  /**
+   * Удаляет базу из кластера 1С с помощью rac.exe
+   */
+  async deleteBaseFromCluster(
+    base: Base1C,
+    callback: (log: string, success: boolean) => Promise<void>,
+  ): Promise<void> {
+    const logPath = path.join(this.logsDir, `delete_cluster_base_${base.id}.log`);
+    const escapedLogPath = logPath.replace(/"/g, '\\"');
+
+    if (!this.clusterId) {
+      await callback('CLUSTER_ID не настроен', false);
+      return;
+    }
+
+    // Экранирование путей
+    const escapedRacPath = this.racPath;
+    const escapedClusterId = this.clusterId;
+
+    // Формируем команду rac для удаления базы
+    // rac.exe infobase --cluster=<id> drop --infobase=<guid>
+    // Добавляем chcp 65001 для корректной кодировки UTF-8
+    // Используем clusterGuid если есть, иначе пытаемся использовать id
+    const infobaseId = base.clusterGuid || String(base.id);
+    const command = `chcp 65001 >nul && "${escapedRacPath}" infobase --cluster=${escapedClusterId} drop --infobase=${infobaseId} > "${escapedLogPath}" 2>&1`;
+
+    this.logger.log(`Выполнение команды удаления из кластера: ${command}`);
+
+    const process = exec(command);
+
+    process.stdout?.on('data', (data) => {
+      this.logger.log(`stdout: ${data}`);
+    });
+
+    process.stderr?.on('data', (data) => {
+      this.logger.error(`stderr: ${data}`);
+    });
+
+    process.on('close', async (code) => {
+      this.logger.log(`Процесс удаления из кластера завершен с кодом: ${code}`);
+
+      let logContent = '';
+      if (fs.existsSync(logPath)) {
+        logContent = fs.readFileSync(logPath, 'utf-8');
+      }
+
+      if (code === 0) {
+        this.logger.log(`База ${base.id} успешно удалена из кластера`);
+        await callback(logContent || 'База успешно удалена из кластера', true);
+      } else {
+        this.logger.error(`Ошибка при удалении базы ${base.id} из кластера, код: ${code}`);
+        await callback(logContent || `Ошибка выполнения команды (код: ${code})`, false);
+      }
+    });
+
+    process.on('error', async (error) => {
+      this.logger.error(`Ошибка процесса удаления из кластера: ${error.message}`);
+      await callback(`Ошибка процесса: ${error.message}`, false);
+    });
+  }
+
+  /**
+   * Удаляет базу данных PostgreSQL через прямое подключение
+   */
+  async dropDatabase(
+    base: Base1C,
+    callback: (log: string, success: boolean) => Promise<void>,
+  ): Promise<void> {
+    const { Client } = require('pg');
+    
+    const client = new Client({
+      host: this.clusterDbServer,
+      port: 5432,
+      user: this.clusterDbUser,
+      password: this.clusterDbPassword,
+      database: 'postgres', // Подключаемся к default базе
+    });
+
+    try {
+      await client.connect();
+      this.logger.log(`Подключено к PostgreSQL для удаления БД ${base.name}`);
+
+      // Завершаем все активные подключения к удаляемой базе
+      await client.query(`
+        SELECT pg_terminate_backend(pid)
+        FROM pg_stat_activity
+        WHERE datname = '${base.name}'
+      `);
+
+      // Удаляем базу данных
+      await client.query(`DROP DATABASE IF EXISTS "${base.name}"`);
+      
+      this.logger.log(`База данных ${base.name} успешно удалена`);
+      await callback(`База данных ${base.name} успешно удалена`, true);
+    } catch (error: any) {
+      this.logger.error(`Ошибка при удалении БД ${base.name}: ${error.message}`);
+      await callback(`Ошибка выполнения: ${error.message}`, false);
+    } finally {
+      await client.end();
+    }
+  }
 }
