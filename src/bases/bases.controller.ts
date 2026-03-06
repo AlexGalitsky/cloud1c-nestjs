@@ -39,10 +39,7 @@ export class BasesController {
 
   @Get()
   async findAll(@Req() req: RequestWithUser) {
-    console.log('findAll called, userId:', req.user?.userId);
-    const result = await this.basesService.findAll(req.user.userId);
-    console.log('findAll result:', result);
-    return result;
+    return this.basesService.findAll(req.user.userId);
   }
 
   @Get(':id')
