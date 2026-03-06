@@ -46,7 +46,7 @@ export class BaseCleanupService {
   }
 
   /**
-   * Проверяет наличие базы в кластере и удаляет из БД если её нет
+   * Проверяет наличие базы в кластере и удаляет если ещё существует
    */
   private async checkAndDeleteBase(base: Base1C): Promise<void> {
     if (!this.clusterId || !base.clusterGuid) {
@@ -56,14 +56,56 @@ export class BaseCleanupService {
 
     const exists = await this.checkBaseInCluster(base.clusterGuid);
     
-    if (exists) {
-      this.logger.log(`База ${base.name} (${base.clusterGuid}) ещё существует в кластере`);
+    if (!exists) {
+      // База удалена из кластера - удаляем из БД
+      this.logger.log(`База ${base.name} удалена из кластера, удаляем из БД...`);
+      await this.deleteBaseFromDatabase(base);
       return;
     }
 
-    // База удалена из кластера - удаляем из БД
-    this.logger.log(`База ${base.name} удалена из кластера, удаляем из БД...`);
-    
+    // База ещё существует в кластере - пробуем удалить повторно
+    this.logger.log(`База ${base.name} ещё существует в кластере, пробуем удалить...`);
+    await this.tryDeleteFromCluster(base);
+  }
+
+  /**
+   * Пытается удалить базу из кластера 1С
+   */
+  private async tryDeleteFromCluster(base: Base1C): Promise<void> {
+    return new Promise((resolve) => {
+      const logPath = path.join(this.logsDir, `retry_delete_${base.clusterGuid}.log`);
+      const escapedRacPath = this.racPath.replace(/"/g, '\\"');
+      const escapedClusterId = this.clusterId;
+      const escapedLogPath = logPath.replace(/"/g, '\\"');
+
+      const command = `chcp 65001 >nul && "${escapedRacPath}" infobase --cluster=${escapedClusterId} drop --infobase=${base.clusterGuid} > "${escapedLogPath}" 2>&1`;
+
+      const process = exec(command);
+
+      process.on('close', (code) => {
+        if (code === 0) {
+          this.logger.log(`Повторная попытка удаления базы ${base.name} успешна`);
+        } else {
+          let logContent = '';
+          if (fs.existsSync(logPath)) {
+            logContent = fs.readFileSync(logPath, 'utf-8');
+          }
+          this.logger.warn(`Повторная попытка удаления базы ${base.name} не удалась: ${logContent}`);
+        }
+        resolve();
+      });
+
+      process.on('error', (error) => {
+        this.logger.error(`Ошибка при повторном удалении базы ${base.name}: ${error.message}`);
+        resolve();
+      });
+    });
+  }
+
+  /**
+   * Удаляет базу из БД и файлов
+   */
+  private async deleteBaseFromDatabase(base: Base1C): Promise<void> {
     // Удаляем .dt файлы
     const dtFilesDir = path.join(process.cwd(), 'dt-files');
     if (fs.existsSync(dtFilesDir)) {
