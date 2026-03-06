@@ -7,9 +7,11 @@ import { AuthModule } from './auth/auth.module';
 import { BasesModule } from './bases/bases.module';
 import { CommandExecutorModule } from './command-executor/command-executor.module';
 import { DtFilesModule } from './dt-files/dt-files.module';
+import { AdminModule } from './admin/admin.module';
 import { User } from './auth/entities/user.entity';
 import { Base1C } from './bases/entities/base1c.entity';
 import { DtFile } from './dt-files/entities/dt-file.entity';
+import { SeedsModule } from './seeds/seeds.module';
 
 @Module({
   imports: [
@@ -35,6 +37,8 @@ import { DtFile } from './dt-files/entities/dt-file.entity';
     BasesModule,
     CommandExecutorModule,
     DtFilesModule,
+    AdminModule,
+    SeedsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
