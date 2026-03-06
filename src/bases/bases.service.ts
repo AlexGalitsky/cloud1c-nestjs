@@ -164,7 +164,12 @@ export class BasesService {
   }
 
   async findAll(ownerId: number): Promise<Base1C[]> {
-    return this.baseRepository.find({ where: { ownerId } });
+    return this.baseRepository.find({ 
+      where: { 
+        ownerId,
+        isDeleted: false,
+      },
+    });
   }
 
   async findOne(id: number, ownerId: number): Promise<Base1C> {
@@ -247,12 +252,13 @@ export class BasesService {
       logs.push(`Удалена папка публикации: ${wwwDir}`);
     }
 
-    // 6. Удаляем запись из БД (каскадно удалит dt_files)
-    await this.baseRepository.remove(base);
-    logs.push('Запись о базе удалена из БД');
+    // 6. Помечаем базу на удаление (физическое удаление выполнит планировщик)
+    base.isDeleted = true;
+    await this.baseRepository.save(base);
+    logs.push('База помечена на удаление. Физическое удаление выполнится после очистки кластера.');
 
     return { 
-      message: 'Base deleted successfully',
+      message: 'Base marked for deletion',
       log: logs.join('\n'),
     };
   }

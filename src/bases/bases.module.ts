@@ -5,6 +5,7 @@ import { BasesService } from './bases.service';
 import { Base1C } from './entities/base1c.entity';
 import { CommandExecutorModule } from '../command-executor/command-executor.module';
 import { DtFilesModule } from '../dt-files/dt-files.module';
+import { BaseCleanupService } from './base-cleanup.service';
 
 @Module({
   imports: [

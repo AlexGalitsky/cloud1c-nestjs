@@ -43,6 +43,9 @@ export class Base1C {
   @Column({ name: 'cluster_guid', nullable: true })
   clusterGuid?: string;
 
+  @Column({ name: 'is_deleted', default: false })
+  isDeleted: boolean;
+
   @ManyToOne(() => User, (user) => user.bases, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'owner_id' })
   owner: User;

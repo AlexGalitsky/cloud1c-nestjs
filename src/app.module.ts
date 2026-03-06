@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -12,6 +13,7 @@ import { User } from './auth/entities/user.entity';
 import { Base1C } from './bases/entities/base1c.entity';
 import { DtFile } from './dt-files/entities/dt-file.entity';
 import { SeedsModule } from './seeds/seeds.module';
+import { BaseCleanupService } from './bases/base-cleanup.service';
 
 @Module({
   imports: [
@@ -33,6 +35,7 @@ import { SeedsModule } from './seeds/seeds.module';
       }),
       inject: [ConfigService],
     }),
+    ScheduleModule.forRoot(),
     AuthModule,
     BasesModule,
     CommandExecutorModule,
@@ -41,6 +44,6 @@ import { SeedsModule } from './seeds/seeds.module';
     SeedsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, BaseCleanupService],
 })
 export class AppModule {}
