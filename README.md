@@ -1,98 +1,266 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Cloud-1S Server
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Backend-сервис на NestJS для управления облачными базами 1С.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 📋 Описание
 
-## Description
+Сервис предоставляет REST API для:
+- Регистрации и аутентификации пользователей
+- Создания и управления базами 1С
+- Загрузки файлов выгрузки `.dt` для восстановления баз
+- Отслеживания статуса операций восстановления
+- Просмотра истории применённых файлов
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## 🛠 Технологии
 
-## Project setup
+- **Фреймворк:** NestJS 11.x
+- **Язык:** TypeScript 5.7.x
+- **База данных:** PostgreSQL (TypeORM)
+- **Аутентификация:** JWT (passport-jwt, bcrypt)
+- **Валидация:** class-validator, class-transformer
+- **Файлы:** Multer
+- **Интеграция:** 1C Enterprise (child_process)
 
-```bash
-$ npm install
+## 📁 Структура проекта
+
+```
+server/
+├── src/
+│   ├── auth/              # Модуль аутентификации
+│   │   ├── auth.controller.ts
+│   │   ├── auth.service.ts
+│   │   ├── entities/user.entity.ts
+│   │   ├── dto/
+│   │   ├── guards/
+│   │   └── strategies/
+│   │
+│   ├── bases/             # Модуль управления базами 1С
+│   │   ├── bases.controller.ts
+│   │   ├── bases.service.ts
+│   │   ├── entities/base1c.entity.ts
+│   │   └── dto/
+│   │
+│   ├── dt-files/          # Модуль файлов выгрузки .dt
+│   │   ├── dt-files.controller.ts
+│   │   ├── dt-files.service.ts
+│   │   └── entities/dt-file.entity.ts
+│   │
+│   ├── command-executor/  # Модуль выполнения команд 1С
+│   │   └── command-executor.service.ts
+│   │
+│   ├── app.module.ts
+│   ├── app.controller.ts
+│   └── main.ts
+│
+├── dt-files/              # Загруженные файлы .dt
+├── logs/                  # Логи операций 1С
+├── .env.example
+├── package.json
+└── tsconfig.json
 ```
 
-## Compile and run the project
+## ⚙️ Установка
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+# Установка зависимостей
+npm install
 ```
 
-## Run tests
+## 🔧 Настройка
+
+Создайте файл `.env` на основе `.env.example`:
 
 ```bash
-# unit tests
-$ npm run test
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
+DB_DATABASE=cloud1c
 
-# e2e tests
-$ npm run test:e2e
+# JWT
+JWT_SECRET=your-super-secret-jwt-key-change-in-production
 
-# test coverage
-$ npm run test:cov
+# 1C Enterprise
+ONEC_PATH=C:\Program Files\1cv8\8.3.25.1549\bin\1cv8.exe
+ONEC_RESOLUTION_CODE=КодРазрешения
+
+# Server
+PORT=3000
+CORS_ORIGIN=http://localhost:5173
+
+# Environment
+NODE_ENV=development
 ```
 
-## Deployment
+### Переменные окружения
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+| Переменная | Описание | По умолчанию |
+|------------|----------|--------------|
+| `DB_HOST` | Хост PostgreSQL | `localhost` |
+| `DB_PORT` | Порт PostgreSQL | `5432` |
+| `DB_USERNAME` | Пользователь БД | `postgres` |
+| `DB_PASSWORD` | Пароль БД | `postgres` |
+| `DB_DATABASE` | Имя базы данных | `cloud1c` |
+| `JWT_SECRET` | Секретный ключ JWT | — |
+| `ONEC_PATH` | Путь к 1cv8.exe | — |
+| `ONEC_RESOLUTION_CODE` | Код разрешения 1С | — |
+| `PORT` | Порт сервера | `3000` |
+| `CORS_ORIGIN` | Разрешённый origin | `http://localhost:5173` |
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## 🚀 Запуск
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Режим разработки (watch mode)
+npm run start:dev
+
+# Обычный запуск
+npm run start
+
+# Отладка
+npm run start:debug
+
+# Продакшен
+npm run build
+npm run start:prod
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## 🧪 Тесты
 
-## Resources
+```bash
+# Unit-тесты
+npm run test
 
-Check out a few resources that may come in handy when working with NestJS:
+# E2E-тесты
+npm run test:e2e
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+# Покрытие
+npm run test:cov
+```
 
-## Support
+## 🌐 API
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+### Аутентификация
 
-## Stay in touch
+| Метод | Endpoint | Описание |
+|-------|----------|----------|
+| POST | `/api/auth/register` | Регистрация пользователя |
+| POST | `/api/auth/login` | Вход (получение JWT) |
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+### Базы 1С
 
-## License
+| Метод | Endpoint | Описание |
+|-------|----------|----------|
+| POST | `/api/bases` | Создание базы (+ загрузка .dt) |
+| GET | `/api/bases` | Список всех баз пользователя |
+| GET | `/api/bases/:id` | Информация о базе |
+| GET | `/api/bases/:id/status` | Статус базы |
+| PATCH | `/api/bases/:id` | Обновление базы (+ загрузка .dt) |
+| DELETE | `/api/bases/:id` | Удаление базы |
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+### Файлы выгрузки (.dt)
+
+| Метод | Endpoint | Описание |
+|-------|----------|----------|
+| GET | `/api/bases/:baseId/dt-files` | Список файлов .dt |
+| GET | `/api/bases/:baseId/dt-files/:id` | Информация о файле |
+| DELETE | `/api/bases/:baseId/dt-files/:id` | Удаление файла |
+| POST | `/api/bases/:baseId/dt-files/:id/apply` | Применение файла .dt |
+
+### Примеры запросов
+
+**Регистрация:**
+```bash
+POST /api/auth/register
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+```
+
+**Вход:**
+```bash
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+
+# Ответ: { "access_token": "eyJhbG..." }
+```
+
+**Создание базы:**
+```bash
+POST /api/bases
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+
+name: "Моя база"
+serverPath: "srv1c"
+adminUser: "admin"
+adminPass: "12345"
+dtFile: <файл .dt>
+```
+
+## 📊 Модель данных
+
+### Users (пользователи)
+- `id` — уникальный идентификатор
+- `email` — email (unique)
+- `password` — хешированный пароль
+
+### Base1C (базы 1С)
+- `id` — уникальный идентификатор
+- `name` — имя базы
+- `server_path` — путь к серверу 1С
+- `admin_user` — пользователь 1С
+- `admin_pass` — пароль 1С
+- `status` — статус (`ready`, `processing`, `error`)
+- `last_log` — лог последней операции
+- `owner_id` — владелец (FK → users)
+
+### DtFile (файлы выгрузки)
+- `id` — уникальный идентификатор
+- `filename` — имя файла
+- `original_name` — оригинальное имя
+- `file_path` — полный путь на диске
+- `file_size` — размер в байтах
+- `base_id` — база (FK → base1c)
+- `created_at` — дата загрузки
+- `last_applied_at` — дата последнего применения
+- `applied` — флаг текущего файла
+
+## 🔄 Workflow
+
+1. Пользователь регистрируется/входит → получает JWT
+2. Создаёт базу 1С через POST `/api/bases` с параметрами и опционально .dt файлом
+3. Сервис создаёт запись в БД со статусом `processing`
+4. При наличии файла запускается восстановление через команду:
+   ```
+   1cv8.exe CONFIG /S"<server>" /N"<user>" /P"<pass>" /RestoreIB "<dt>" /Out "<log>" /UC "<code>"
+   ```
+5. После завершения обновляется статус (`ready`/`error`) и лог
+6. Пользователь может загрузить новые .dt файлы и применить их
+
+## 🔐 Безопасность
+
+- Пароли хешируются через **bcrypt**
+- JWT токены с сроком действия **24 часа**
+- Все endpoints кроме `/auth/register` и `/auth/login` защищены **JwtAuthGuard**
+- Валидация входных данных через **class-validator**
+- CORS настроен на конкретный origin
+
+## 📝 Примечания
+
+- Логи операций 1С сохраняются в папку `logs/`
+- Файлы `.dt` хранятся в `dt-files/`
+- В продакшене `synchronize: false` (схема БД не создаётся автоматически)
+- Для работы требуется установленная **1С:Предприятие** (путь в `ONEC_PATH`)
+
+## 📄 Лицензия
+
+MIT
