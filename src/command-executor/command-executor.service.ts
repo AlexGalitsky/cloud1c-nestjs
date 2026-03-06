@@ -204,7 +204,8 @@ export class CommandExecutorService {
 
     // Формируем команду webinst для публикации
     // webinst.exe -publish -iis -wsdir <alias> -dir <path> -connstr "Srvr=<server>;Ref=<base>;"
-    const command = `"${escapedWebinstPath}" -publish -iis -wsdir "${escapedWsDir}" -dir "${escapedDir}" -connstr "Srvr=${clusterAddress};Ref=${base.name};" > "${escapedLogPath}" 2>&1`;
+    // Добавляем chcp 65001 для корректной кодировки UTF-8
+    const command = `chcp 65001 >nul && "${escapedWebinstPath}" -publish -iis -wsdir "${escapedWsDir}" -dir "${escapedDir}" -connstr "Srvr=${clusterAddress};Ref=${base.name};" > "${escapedLogPath}" 2>&1`;
 
     this.logger.log(`Выполнение команды публикации: ${command}`);
 
