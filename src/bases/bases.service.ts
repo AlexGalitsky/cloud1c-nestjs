@@ -165,10 +165,8 @@ export class BasesService {
 
   async findAll(ownerId: number): Promise<Base1C[]> {
     return this.baseRepository.find({ 
-      where: { 
-        ownerId,
-        isDeleted: false,
-      },
+      where: { ownerId },
+      order: { id: 'DESC' },
     });
   }
 
