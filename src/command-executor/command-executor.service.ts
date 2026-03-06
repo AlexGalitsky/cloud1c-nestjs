@@ -15,7 +15,9 @@ export class CommandExecutorService {
   private readonly logger = new Logger(CommandExecutorService.name);
   private readonly ibCmdPath = process.env.IB_CMD_PATH || 'C:\\Program Files\\1cv8\\8.3.18.1208\\bin\\ibcmd.exe';
   private readonly racPath = process.env.RAC_PATH || 'C:\\Program Files\\1cv8\\8.3.18.1208\\bin\\rac.exe';
+  private readonly webinstPath = process.env.WEBINST_PATH || 'C:\\Program Files\\1cv8\\8.3.18.1208\\bin\\webinst.exe';
   private readonly logsDir = path.join(process.cwd(), 'logs');
+  private readonly wwwRoot = process.env.WWW_ROOT || 'C:\\inetpub\\wwwroot';
   
   // Cluster settings
   private readonly clusterId = process.env.CLUSTER_ID || '';
@@ -174,6 +176,68 @@ export class CommandExecutorService {
     process.on('error', async (error) => {
       this.logger.error(`Ошибка процесса: ${error.message}`);
       await callback(`Ошибка процесса: ${error.message}`, BaseStatus.ERROR);
+    });
+  }
+
+  /**
+   * Публикует базу на веб-сервере IIS с помощью webinst.exe
+   */
+  async publishBase(
+    base: Base1C,
+    callback: (log: string, success: boolean) => Promise<void>,
+  ): Promise<void> {
+    const logPath = path.join(this.logsDir, `publish_base_${base.id}.log`);
+    const wwwDir = path.join(this.wwwRoot, base.name);
+
+    // Создаем директорию для публикации если не существует
+    if (!fs.existsSync(wwwDir)) {
+      fs.mkdirSync(wwwDir, { recursive: true });
+      this.logger.log(`Создана директория для публикации: ${wwwDir}`);
+    }
+
+    // Экранирование путей
+    const escapedWebinstPath = this.webinstPath;
+    const escapedWsDir = base.name.replace(/"/g, '\\"');
+    const escapedDir = wwwDir.replace(/"/g, '\\"');
+    const escapedLogPath = logPath.replace(/"/g, '\\"');
+    const clusterAddress = this.clusterAddress || 'localhost';
+
+    // Формируем команду webinst для публикации
+    // webinst.exe -publish -iis -wsdir <alias> -dir <path> -connstr "Srvr=<server>;Ref=<base>;"
+    const command = `"${escapedWebinstPath}" -publish -iis -wsdir "${escapedWsDir}" -dir "${escapedDir}" -connstr "Srvr=${clusterAddress};Ref=${base.name};" > "${escapedLogPath}" 2>&1`;
+
+    this.logger.log(`Выполнение команды публикации: ${command}`);
+
+    const process = exec(command);
+
+    process.stdout?.on('data', (data) => {
+      this.logger.log(`stdout: ${data}`);
+    });
+
+    process.stderr?.on('data', (data) => {
+      this.logger.error(`stderr: ${data}`);
+    });
+
+    process.on('close', async (code) => {
+      this.logger.log(`Процесс публикации завершен с кодом: ${code}`);
+
+      let logContent = '';
+      if (fs.existsSync(logPath)) {
+        logContent = fs.readFileSync(logPath, 'utf-8');
+      }
+
+      if (code === 0) {
+        this.logger.log(`База ${base.id} успешно опубликована`);
+        await callback(logContent || 'База успешно опубликована', true);
+      } else {
+        this.logger.error(`Ошибка при публикации базы ${base.id}, код: ${code}`);
+        await callback(logContent || `Ошибка выполнения команды (код: ${code})`, false);
+      }
+    });
+
+    process.on('error', async (error) => {
+      this.logger.error(`Ошибка процесса публикации: ${error.message}`);
+      await callback(`Ошибка процесса: ${error.message}`, false);
     });
   }
 }

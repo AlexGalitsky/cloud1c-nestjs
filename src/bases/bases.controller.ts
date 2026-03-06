@@ -77,4 +77,9 @@ export class BasesController {
     await this.basesService.remove(id, req.user.userId);
     return { message: 'Base deleted successfully' };
   }
+
+  @Post(':id/publish')
+  async publish(@Param('id', ParseIntPipe) id: number, @Req() req: RequestWithUser) {
+    return this.basesService.publish(id, req.user.userId);
+  }
 }

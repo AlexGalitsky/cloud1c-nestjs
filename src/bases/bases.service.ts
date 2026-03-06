@@ -191,4 +191,21 @@ export class BasesService {
     const base = await this.findOne(id, ownerId);
     await this.baseRepository.remove(base);
   }
+
+  async publish(id: number, ownerId: number): Promise<{ message: string }> {
+    const base = await this.findOne(id, ownerId);
+
+    if (!base) {
+      throw new NotFoundException('Base not found');
+    }
+
+    // Запускаем публикацию
+    await this.commandExecutor.publishBase(base, async (log, success) => {
+      await this.baseRepository.update(id, {
+        lastLog: log,
+      });
+    });
+
+    return { message: 'Publish started' };
+  }
 }
