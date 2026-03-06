@@ -94,7 +94,6 @@ export class BasesService {
         }
 
         // После успешного создания в кластере - восстанавливаем из .dt
-        // isFirstRestore=true, так как база пустая и логин/пароль не требуются
         this.commandExecutor.executeRestoreCommand(
           base,
           dtPath,
@@ -109,7 +108,6 @@ export class BasesService {
               });
             }
           },
-          true, // isFirstRestore=true для создания новой базы
         );
       } else {
         // Если файл не загружен, просто создаем базу в кластере

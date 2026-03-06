@@ -13,10 +13,9 @@ export interface CreateBaseResult {
 @Injectable()
 export class CommandExecutorService {
   private readonly logger = new Logger(CommandExecutorService.name);
-  private readonly oneCPath = process.env.ONEC_PATH || 'C:\\Program Files\\1cv8\\8.3.25.1549\\bin\\1cv8.exe';
-  private readonly racPath = process.env.RAC_PATH || 'C:\\Program Files\\1cv8\\8.3.25.1549\\bin\\rac.exe';
+  private readonly ibCmdPath = process.env.IB_CMD_PATH || 'C:\\Program Files\\1cv8\\8.3.18.1208\\bin\\ibcmd.exe';
+  private readonly racPath = process.env.RAC_PATH || 'C:\\Program Files\\1cv8\\8.3.18.1208\\bin\\rac.exe';
   private readonly logsDir = path.join(process.cwd(), 'logs');
-  private readonly resolutionCode = process.env.ONEC_RESOLUTION_CODE || 'КодРазрешения';
   
   // Cluster settings
   private readonly clusterId = process.env.CLUSTER_ID || '';
@@ -26,8 +25,11 @@ export class CommandExecutorService {
   private readonly clusterDbUser = process.env.CLUSTER_DB_USER || 'postgres';
   private readonly clusterDbPassword = process.env.CLUSTER_DB_PASSWORD || '';
   private readonly clusterLocale = process.env.CLUSTER_LOCALE || 'ru_RU';
-  private readonly clusterDefUser = process.env.CLUSTER_DEF_USER || 'Admin';
-  private readonly clusterDefPwd = process.env.CLUSTER_DEF_PWD || '';
+  
+  // Флаг необходимости указания логина/пароля ИБ (требуется для версий 1С >= 8.3.1741)
+  private readonly isUserPassRequired = process.env.IB_USER_PASS_REQUIRED === 'true';
+  private readonly ibUser = process.env.IB_USER || 'Admin';
+  private readonly ibPassword = process.env.IB_PASSWORD || '';
 
   constructor() {
     if (!fs.existsSync(this.logsDir)) {
@@ -105,33 +107,34 @@ export class CommandExecutorService {
     });
   }
 
+  /**
+   * Восстанавливает базу из .dt файла с помощью ibcmd.exe
+   * Логин/пароль от ИБ указываются только если isUserPassRequired=true (для 1С >= 8.3.1741)
+   */
   executeRestoreCommand(
     base: Base1C,
     dtPath: string,
     callback: (log: string, status: BaseStatus) => Promise<void>,
-    isFirstRestore: boolean = false, // Флаг первого восстановления (пустая база)
   ): void {
     const logPath = path.join(this.logsDir, `base_${base.id}.log`);
 
-    // При первом восстановлении (пустая база) логин/пароль не требуются
-    // При повторной загрузке используем adminUser/adminPass из базы или fallback
-    const adminUser = isFirstRestore ? null : (base.adminUser || this.clusterDefUser || 'Admin');
-    const adminPass = isFirstRestore ? null : (base.adminPass || this.clusterDefPwd || '');
-
-    // Экранирование пути для команды
-    const escapedOneCPath = this.oneCPath;
-    const escapedServerPath = base.serverPath.replace(/"/g, '\\"');
+    // Экранирование путей
+    const escapedIbCmdPath = this.ibCmdPath;
     const escapedDtPath = dtPath.replace(/"/g, '\\"');
     const escapedLogPath = logPath.replace(/"/g, '\\"');
-    const escapedResolutionCode = this.resolutionCode.replace(/"/g, '\\"');
+    const escapedDbServer = this.clusterDbServer.replace(/"/g, '\\"');
+    const escapedDbUser = this.clusterDbUser.replace(/"/g, '\\"');
+    const escapedDbPassword = this.clusterDbPassword.replace(/"/g, '\\"');
 
-    // Формируем команду: при первом восстановлении не указываем /N и /P
-    let command = `"${escapedOneCPath}" CONFIG /S"${escapedServerPath}" /RestoreIB "${escapedDtPath}" /Out "${escapedLogPath}" /UC "${escapedResolutionCode}"`;
+    // Формируем команду ibcmd для восстановления
+    // Базовая команда: ibcmd.exe infobase restore --dbms=PostgreSQL --db-server=... --db-name=... --db-user=... --db-pwd=... "file.dt"
+    let command = `"${escapedIbCmdPath}" infobase restore --dbms=${this.clusterDbms} --db-server=${escapedDbServer} --db-name=${base.name} --db-user=${escapedDbUser} --db-pwd=${escapedDbPassword} "${escapedDtPath}" > "${escapedLogPath}" 2>&1`;
     
-    if (!isFirstRestore && adminUser && adminPass) {
-      const escapedAdminUser = adminUser.replace(/"/g, '\\"');
-      const escapedAdminPass = adminPass.replace(/"/g, '\\"');
-      command = `"${escapedOneCPath}" CONFIG /S"${escapedServerPath}" /N"${escapedAdminUser}" /P"${escapedAdminPass}" /RestoreIB "${escapedDtPath}" /Out "${escapedLogPath}" /UC "${escapedResolutionCode}"`;
+    // Для версий 1С >= 8.3.1741 требуется указывать логин/пароль от ИБ
+    if (this.isUserPassRequired) {
+      const escapedIbUser = this.ibUser.replace(/"/g, '\\"');
+      const escapedIbPassword = this.ibPassword.replace(/"/g, '\\"');
+      command = `"${escapedIbCmdPath}" infobase restore --dbms=${this.clusterDbms} --db-server=${escapedDbServer} --db-name=${base.name} --db-user=${escapedDbUser} --db-pwd=${escapedDbPassword} --user=${escapedIbUser} --password=${escapedIbPassword} "${escapedDtPath}" > "${escapedLogPath}" 2>&1`;
     }
 
     this.logger.log(`Выполнение команды: ${command}`);

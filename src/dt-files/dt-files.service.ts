@@ -86,8 +86,7 @@ export class DtFilesService {
       lastLog: 'Применение файла .dt...',
     });
 
-    // Выполняем команду 1С
-    // isFirstRestore=false, так как это повторная загрузка в существующую базу
+    // Выполняем команду 1С через ibcmd.exe
     this.commandExecutor.executeRestoreCommand(
       base,
       dtFile.filePath,
@@ -111,7 +110,6 @@ export class DtFilesService {
             .execute();
         }
       },
-      false, // isFirstRestore=false для повторной загрузки
     );
   }
 
