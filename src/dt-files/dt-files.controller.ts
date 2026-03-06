@@ -11,6 +11,7 @@ import {
   Inject,
   forwardRef,
 } from '@nestjs/common';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { DtFilesService } from './dt-files.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BasesService } from '../bases/bases.service';
@@ -21,7 +22,14 @@ interface RequestWithUser extends Request {
 }
 
 export class ApplyDtDto {
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
   adminUser?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
   adminPass?: string;
 }
 

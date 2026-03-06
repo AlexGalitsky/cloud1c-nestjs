@@ -110,11 +110,14 @@ export class CommandExecutorService {
   /**
    * Восстанавливает базу из .dt файла с помощью ibcmd.exe
    * Логин/пароль от ИБ указываются только если isUserPassRequired=true (для 1С >= 8.3.1741)
+   * Если adminUser/adminPass переданы - используются они, иначе пустые значения (для is_empty=true)
    */
   executeRestoreCommand(
     base: Base1C,
     dtPath: string,
     callback: (log: string, status: BaseStatus) => Promise<void>,
+    adminUser?: string,
+    adminPass?: string,
   ): void {
     const logPath = path.join(this.logsDir, `base_${base.id}.log`);
 
@@ -130,11 +133,12 @@ export class CommandExecutorService {
     // Базовая команда: ibcmd.exe infobase restore --dbms=PostgreSQL --db-server=... --db-name=... --db-user=... --db-pwd=... "file.dt"
     // Добавляем chcp 65001 для корректной кодировки UTF-8
     let command = `chcp 65001 >nul && "${escapedIbCmdPath}" infobase restore --dbms=${this.clusterDbms} --db-server=${escapedDbServer} --db-name=${base.name} --db-user=${escapedDbUser} --db-pwd=${escapedDbPassword} "${escapedDtPath}" > "${escapedLogPath}" 2>&1`;
-    
+
     // Для версий 1С >= 8.3.1741 требуется указывать логин/пароль от ИБ
     if (this.isUserPassRequired) {
-      const escapedIbUser = this.ibUser.replace(/"/g, '\\"');
-      const escapedIbPassword = this.ibPassword.replace(/"/g, '\\"');
+      // Используем переданные логин/пароль или пустые значения
+      const escapedIbUser = (adminUser || '').replace(/"/g, '\\"');
+      const escapedIbPassword = (adminPass || '').replace(/"/g, '\\"');
       command = `chcp 65001 >nul && "${escapedIbCmdPath}" infobase restore --dbms=${this.clusterDbms} --db-server=${escapedDbServer} --db-name=${base.name} --db-user=${escapedDbUser} --db-pwd=${escapedDbPassword} --user=${escapedIbUser} --password=${escapedIbPassword} "${escapedDtPath}" > "${escapedLogPath}" 2>&1`;
     }
 

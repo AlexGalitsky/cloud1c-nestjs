@@ -94,6 +94,7 @@ export class DtFilesService {
     }
 
     // Выполняем команду 1С через ibcmd.exe
+    // Передаем логин/пароль только если они есть (для is_empty=false)
     this.commandExecutor.executeRestoreCommand(
       base,
       dtFile.filePath,
@@ -120,6 +121,8 @@ export class DtFilesService {
           await this.baseRepository.update(baseId, { isEmpty: false });
         }
       },
+      adminUser,
+      adminPass,
     );
   }
 
