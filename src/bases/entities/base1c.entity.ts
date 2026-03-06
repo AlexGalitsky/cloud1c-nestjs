@@ -12,17 +12,17 @@ export class Base1C {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
+  @Column({ unique: true })
   name: string;
 
   @Column({ name: 'server_path' })
   serverPath: string;
 
-  @Column({ name: 'admin_user' })
-  adminUser: string;
+  @Column({ name: 'admin_user', nullable: true })
+  adminUser?: string;
 
-  @Column({ name: 'admin_pass', select: false })
-  adminPass: string;
+  @Column({ name: 'admin_pass', select: false, nullable: true })
+  adminPass?: string;
 
   @Column({
     type: 'enum',
@@ -33,6 +33,9 @@ export class Base1C {
 
   @Column({ name: 'last_log', type: 'text', nullable: true })
   lastLog: string;
+
+  @Column({ nullable: true })
+  description?: string;
 
   @ManyToOne(() => User, (user) => user.bases, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'owner_id' })

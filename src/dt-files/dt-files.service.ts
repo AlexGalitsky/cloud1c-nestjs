@@ -87,6 +87,7 @@ export class DtFilesService {
     });
 
     // Выполняем команду 1С
+    // isFirstRestore=false, так как это повторная загрузка в существующую базу
     this.commandExecutor.executeRestoreCommand(
       base,
       dtFile.filePath,
@@ -110,6 +111,7 @@ export class DtFilesService {
             .execute();
         }
       },
+      false, // isFirstRestore=false для повторной загрузки
     );
   }
 

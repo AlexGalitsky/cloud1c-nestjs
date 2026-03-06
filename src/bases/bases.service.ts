@@ -39,11 +39,24 @@ export class BasesService {
     await queryRunner.startTransaction();
 
     try {
+      // Проверяем на дублирование названия базы
+      const existingBase = await this.baseRepository.findOne({ where: { name: createBaseDto.name } });
+      if (existingBase) {
+        throw new ForbiddenException('База с таким названием уже существует');
+      }
+
+      // Формируем serverPath автоматически из адреса кластера и названия
+      const serverPath = this.commandExecutor.buildServerPath(createBaseDto.name);
+
       const base = this.baseRepository.create({
-        ...createBaseDto,
+        name: createBaseDto.name,
+        serverPath,
         ownerId,
+        adminUser: createBaseDto.adminUser || undefined,
+        adminPass: createBaseDto.adminPass || undefined,
         status: BaseStatus.PROCESSING,
         lastLog: 'Инициализация...',
+        description: createBaseDto.description || undefined,
       });
 
       await queryRunner.manager.save(base);
@@ -54,34 +67,65 @@ export class BasesService {
         const dtPath = path.join(this.uploadDir, filename);
         fs.writeFileSync(dtPath, dtFile.buffer);
 
-        // Сохраняем информацию о файле
-        await this.dtFilesService.create(
-          base.id,
-          filename,
-          dtFile.originalname,
-          dtPath,
-          dtFile.size,
-        );
+        // Сохраняем информацию о файле в рамках транзакции
+        const dtFileRecord = new DtFile();
+        dtFileRecord.baseId = base.id;
+        dtFileRecord.filename = filename;
+        dtFileRecord.originalName = dtFile.originalname;
+        dtFileRecord.filePath = dtPath;
+        dtFileRecord.fileSize = dtFile.size;
+        dtFileRecord.applied = false;
+        await queryRunner.manager.save(dtFileRecord);
 
+        // Сначала создаем базу в кластере 1С
+        const createResult = await this.commandExecutor.executeCreateBaseCommand(base);
+
+        if (!createResult.success) {
+          await queryRunner.manager.update(Base1C, base.id, {
+            status: BaseStatus.ERROR,
+            lastLog: `Ошибка создания базы в кластере: ${createResult.error}`
+          });
+          await queryRunner.commitTransaction();
+          const savedBase = await this.baseRepository.findOne({ where: { id: base.id } });
+          if (!savedBase) {
+            throw new NotFoundException('Base not found after creation');
+          }
+          return savedBase;
+        }
+
+        // После успешного создания в кластере - восстанавливаем из .dt
+        // isFirstRestore=true, так как база пустая и логин/пароль не требуются
         this.commandExecutor.executeRestoreCommand(
           base,
           dtPath,
           async (log: string, status: BaseStatus) => {
             await this.dataSource.manager.update(Base1C, base.id, { lastLog: log, status });
-            
+
             // Помечаем файл как применённый
             if (status === BaseStatus.READY) {
-              const dtFileRecord = await this.dataSource.manager.findOne(DtFile, {
-                where: { filePath: dtPath },
+              await this.dataSource.manager.update(DtFile, dtFileRecord.id, {
+                applied: true,
+                lastAppliedAt: new Date(),
               });
-              if (dtFileRecord) {
-                await this.dtFilesService.markAsApplied(dtFileRecord.id);
-              }
             }
           },
+          true, // isFirstRestore=true для создания новой базы
         );
       } else {
-        await queryRunner.manager.update(Base1C, base.id, { status: BaseStatus.READY, lastLog: 'База создана без файла .dt' });
+        // Если файл не загружен, просто создаем базу в кластере
+        const createResult = await this.commandExecutor.executeCreateBaseCommand(base);
+
+        if (!createResult.success) {
+          await queryRunner.manager.update(Base1C, base.id, {
+            status: BaseStatus.ERROR,
+            lastLog: `Ошибка создания базы в кластере: ${createResult.error}`
+          });
+        } else {
+          await queryRunner.manager.update(Base1C, base.id, {
+            status: BaseStatus.READY,
+            lastLog: `База создана в кластере (ID: ${createResult.infobaseId})`
+          });
+        }
       }
 
       await queryRunner.commitTransaction();
@@ -109,7 +153,16 @@ export class BasesService {
       throw new ForbiddenException('You do not own this base');
     }
 
-    Object.assign(base, updateBaseDto);
+    // Обновляем только description, adminUser и adminPass (если предоставлены)
+    if (updateBaseDto.description !== undefined) {
+      base.description = updateBaseDto.description;
+    }
+    if (updateBaseDto.adminUser !== undefined) {
+      base.adminUser = updateBaseDto.adminUser;
+    }
+    if (updateBaseDto.adminPass !== undefined) {
+      base.adminPass = updateBaseDto.adminPass;
+    }
 
     if (dtFile) {
       base.status = BaseStatus.PROCESSING;
@@ -138,7 +191,7 @@ export class BasesService {
         dtPath,
         async (log: string, status: BaseStatus) => {
           await this.dataSource.manager.update(Base1C, base.id, { lastLog: log, status });
-          
+
           // Помечаем файл как применённый
           if (status === BaseStatus.READY) {
             const dtFileRecord = await this.dataSource.manager.findOne(DtFile, {

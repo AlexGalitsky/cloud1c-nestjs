@@ -1,37 +1,45 @@
-import { IsNotEmpty, IsString, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, Matches, MaxLength, MinLength } from 'class-validator';
 
 export class CreateBaseDto {
   @IsString()
   @IsNotEmpty()
+  @MaxLength(50)
+  @Matches(/^[a-zA-Z][a-zA-Z0-9]*$/, {
+    message: 'Название должно начинаться с английской буквы и содержать только английские буквы и цифры',
+  })
   name: string;
 
   @IsString()
-  @IsNotEmpty()
-  serverPath: string;
+  @IsOptional()
+  @MaxLength(100)
+  description?: string;
 
   @IsString()
-  @IsNotEmpty()
-  adminUser: string;
+  @IsOptional()
+  @MaxLength(50)
+  adminUser?: string;
 
   @IsString()
-  @IsNotEmpty()
-  adminPass: string;
+  @IsOptional()
+  @MinLength(1)
+  @MaxLength(50)
+  adminPass?: string;
 }
 
 export class UpdateBaseDto {
   @IsString()
   @IsOptional()
-  name?: string;
+  @MaxLength(100)
+  description?: string;
 
   @IsString()
   @IsOptional()
-  serverPath?: string;
-
-  @IsString()
-  @IsOptional()
+  @MaxLength(50)
   adminUser?: string;
 
   @IsString()
   @IsOptional()
+  @MinLength(1)
+  @MaxLength(50)
   adminPass?: string;
 }
