@@ -46,6 +46,9 @@ export class Base1C {
   @Column({ name: 'is_deleted', default: false })
   isDeleted: boolean;
 
+  @Column({ name: 'is_published', default: false })
+  isPublished: boolean;
+
   @ManyToOne(() => User, (user) => user.bases, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'owner_id' })
   owner: User;

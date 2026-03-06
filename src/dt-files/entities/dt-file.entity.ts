@@ -33,4 +33,7 @@ export class DtFile {
 
   @Column({ default: false })
   applied: boolean;
+
+  @Column({ nullable: true })
+  comment?: string;
 }

@@ -10,6 +10,7 @@ import {
   Body,
   Inject,
   forwardRef,
+  Patch,
 } from '@nestjs/common';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { DtFilesService } from './dt-files.service';
@@ -31,6 +32,20 @@ export class ApplyDtDto {
   @IsOptional()
   @MaxLength(50)
   adminPass?: string;
+}
+
+export class UploadDtDto {
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  comment?: string;
+}
+
+export class UpdateDtDto {
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  comment?: string;
 }
 
 @UseGuards(JwtAuthGuard)
@@ -79,5 +94,16 @@ export class DtFilesController {
     await this.basesService.findOne(baseId, req.user.userId);
     await this.dtFilesService.apply(id, baseId, applyDto.adminUser, applyDto.adminPass);
     return { message: 'Apply started' };
+  }
+
+  @Patch(':id')
+  async update(
+    @Param('baseId', ParseIntPipe) baseId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: RequestWithUser,
+    @Body() updateDto: UpdateDtDto,
+  ) {
+    await this.basesService.findOne(baseId, req.user.userId);
+    return this.dtFilesService.update(id, baseId, updateDto);
   }
 }

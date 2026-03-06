@@ -48,6 +48,7 @@ export class DtFilesService {
     originalName: string,
     filePath: string,
     fileSize: number,
+    comment?: string,
   ): Promise<DtFile> {
     const dtFile = this.dtFileRepository.create({
       baseId,
@@ -56,6 +57,7 @@ export class DtFilesService {
       filePath,
       fileSize,
       applied: false,
+      comment,
     });
 
     return this.dtFileRepository.save(dtFile);
@@ -131,5 +133,23 @@ export class DtFilesService {
       applied: true,
       lastAppliedAt: new Date(),
     });
+  }
+
+  async update(id: number, baseId: number, updateDto: { comment?: string }): Promise<DtFile> {
+    const dtFile = await this.findOne(id, baseId);
+
+    if (updateDto.comment !== undefined) {
+      await this.dtFileRepository.update(id, {
+        comment: updateDto.comment,
+      });
+    }
+
+    const updatedDtFile = await this.dtFileRepository.findOne({ where: { id, baseId } });
+
+    if (!updatedDtFile) {
+      throw new NotFoundException('File not found');
+    }
+
+    return updatedDtFile;
   }
 }

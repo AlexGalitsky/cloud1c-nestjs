@@ -126,6 +126,7 @@ export class BasesService {
       dtFile.originalname,
       dtPath,
       dtFile.size,
+      uploadDto.comment,
     );
 
     // Сохраняем adminUser/adminPass если предоставлены
@@ -272,6 +273,7 @@ export class BasesService {
     await this.commandExecutor.publishBase(base, async (log, success) => {
       await this.baseRepository.update(id, {
         lastLog: log,
+        isPublished: success,
       });
     });
 

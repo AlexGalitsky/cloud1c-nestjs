@@ -32,4 +32,9 @@ export class UploadDtDto {
   @IsOptional()
   @MaxLength(50)
   adminPass?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  comment?: string;
 }
