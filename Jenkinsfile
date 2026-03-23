@@ -36,8 +36,8 @@ pipeline {
                             sh "ssh ${sshOpts} ${REMOTE_USER}@${REMOTE_HOST} 'hostname'"
                             
                             // 1. Останавливаем процесс, чтобы Windows разблокировала файлы
-                            // Используем || true, чтобы пайплайн не упал, если процесс еще не создан
-                            sh "ssh ${sshOpts} ${REMOTE_USER}@${REMOTE_HOST} 'pm2 stop cloud1c-server || true'"
+                            // Используем || (exit 0), чтобы пайплайн не упал, если процесс еще не создан
+                            sh "ssh ${sshOpts} ${REMOTE_USER}@${REMOTE_HOST} 'pm2 stop cloud1c-server || (exit 0)'"
 
                             // 2. Очищаем старый dist и копируем новые файлы
                             sh "ssh ${sshOpts} ${REMOTE_USER}@${REMOTE_HOST} 'rmdir /s /q ${REMOTE_DIR}\\dist || mkdir ${REMOTE_DIR}'"
