@@ -26,8 +26,14 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                sshagent(credentials: ['windows-ssh-creds']) {
+                sshagent(credentials: ['windows-ssh-key']) {
                     withCredentials([file(credentialsId: 'cloud1c-server-env', variable: 'ENV_FILE')]) {
+                        // 0. Флаги для автоматического принятия ключа сервера
+                        def sshOpts = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+                        
+                        // Тестовая команда
+                        sh "ssh ${sshOpts} ${REMOTE_USER}@${REMOTE_HOST} 'hostname'"
+                        
                         // 1. Останавливаем процесс, чтобы Windows разблокировала файлы
                         // Используем || true, чтобы пайплайн не упал, если процесс еще не создан
                         sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'pm2 stop cloud1c-server || true'"
@@ -48,6 +54,6 @@ pipeline {
                 }
             }
         }
-        
+
     }
 }
