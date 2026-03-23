@@ -15,6 +15,7 @@ pipeline {
         REMOTE_HOST = "192.168.1.202"
         REMOTE_DIR  = "C:/apps/cloud1c-server"
     }
+
     stages {
         stage('Build') {
             steps {
@@ -22,9 +23,10 @@ pipeline {
                 sh 'npm run build'
             }
         }
+
         stage('Deploy') {
             steps {
-                sshagent(['windows-ssh-creds']) {
+                sshagent(credentials: ['windows-ssh-creds']) {
                     withCredentials([file(credentialsId: 'cloud1c-server-env', variable: 'ENV_FILE')]) {
                         // 1. Останавливаем процесс, чтобы Windows разблокировала файлы
                         // Используем || true, чтобы пайплайн не упал, если процесс еще не создан
@@ -46,5 +48,6 @@ pipeline {
                 }
             }
         }
+        
     }
 }
