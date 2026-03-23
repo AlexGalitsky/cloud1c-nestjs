@@ -46,7 +46,7 @@ pipeline {
                         
                         // 3. Кладем свежий .env из секретов Jenkins
                         withCredentials([file(credentialsId: 'cloud1c-server-env', variable: 'ENV_FILE')]) {
-                            sh "scp ${sshOpts} ${ENV_FILE} ${REMOTE_USER}@${REMOTE_HOST}:${remoteDir}/.env"
+                            sh "scp ${sshOpts} ${ENV_FILE} ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/.env"
                         }
 
                         println "Installing dependencies on Windows..."
