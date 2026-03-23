@@ -1,5 +1,10 @@
 pipeline {
     agent any
+
+    tools {
+        nodejs 'node24'
+    }
+
     environment {
         HTTP_PROXY  = "http://192.168.1.204:44681"
         HTTPS_PROXY = "http://192.168.1.204:44681"
