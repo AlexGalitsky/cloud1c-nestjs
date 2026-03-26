@@ -205,7 +205,7 @@ export class CommandExecutorService {
     // Формируем команду webinst для публикации
     // webinst.exe -publish -iis -wsdir <alias> -dir <path> -connstr "Srvr=<server>;Ref=<base>;"
     // Добавляем chcp 65001 для корректной кодировки UTF-8
-    const command = `chcp 65001 >nul && "${escapedWebinstPath}" -publish -iis -wsdir "${escapedWsDir}" -dir "${escapedDir}" -connstr "Srvr=${clusterAddress};Ref=${base.name};" -allhs > "${escapedLogPath}" 2>&1`;
+    const command = `chcp 65001 >nul && "${escapedWebinstPath}" -publish -iis -wsdir "${escapedWsDir}" -dir "${escapedDir}" -connstr "Srvr=${clusterAddress};Ref=${base.name};" > "${escapedLogPath}" 2>&1`;
 
     this.logger.log(`Выполнение команды публикации: ${command}`);
 
@@ -229,6 +229,27 @@ export class CommandExecutorService {
 
       if (code === 0) {
         this.logger.log(`База ${base.id} успешно опубликована`);
+
+        // Формируем и сохраняем файл default.vrd
+        const vrdContent = `<?xml version="1.0" encoding="UTF-8"?>
+<point xmlns="http://v8.1c.ru/8.2/virtual-resource-system"
+xmlns:xs="http://www.w3.org/2001/XMLSchema"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+base="/${base.name}"
+ib="Srvr=${clusterAddress};Ref=${base.name};">
+<standardOdata enable="false"
+reuseSessions="autouse"
+sessionMaxAge="20"
+poolSize="10"
+poolTimeout="5"/>
+<analytics enable="true"/>
+<httpServices publishByDefault="true" />
+</point>`;
+
+        const vrdPath = path.join(wwwDir, 'default.vrd');
+        fs.writeFileSync(vrdPath, vrdContent, 'utf-8');
+        this.logger.log(`Файл default.vrd создан: ${vrdPath}`);
+
         await callback(logContent || 'База успешно опубликована', true);
       } else {
         this.logger.error(`Ошибка при публикации базы ${base.id}, код: ${code}`);
