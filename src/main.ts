@@ -5,9 +5,12 @@ import { UserStatusGuard } from './auth/guards/user-status.guard';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const origin = process.env.CORS_ORIGIN || 'http://localhost:5173';
+
+  console.log(`ORIGIN: ${origin}`);
 
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    origin: origin,
     credentials: true,
   });
 
@@ -26,6 +29,6 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}`);
+  console.log(`Application is running on: http://0.0.0.0:${port}`);
 }
 bootstrap();
